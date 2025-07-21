@@ -1,67 +1,138 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Management;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Bit_Locker
 {
     public partial class MainWin : Form
     {
-        public string[] driveList = Environment.GetLogicalDrives();
+        public string[] driveList;
         List<string> bitlockerDrives = new List<string>();
         public string targetDrive;
+
+        //复选框注册表，用于保持上次程序关闭前的复选框状态
+        private const string RegistryKeyPath = @"SOFTWARE\EasyLockBit";
+        private const string RegistryValueName = "ToDelVolCheckBoxState";
+
         public MainWin()
         {
             InitializeComponent();
-            Console.Write("DriveList: "+string.Join(" ", driveList));
-            foreach (string drive in driveList)
+            CheckForAdminRights();
+            RefleshDrivers();
+        }
+
+        //检测是否以管理员身份运行
+        private void CheckForAdminRights()
+        {
+            // 获取当前进程的Windows身份
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            // 创建一个WindowsPrincipal对象
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+
+            // 检查当前用户是否属于管理员组
+            if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
             {
-                
-                // 检查当前驱动器是否启用了 BitLocker
-                if (IsDriveBitlocked(drive))
+                // 如果不是管理员，弹出消息框并退出程序
+                MessageBox.Show("此程序需要以管理员身份运行。", "权限不足", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Application.Exit();
+            }
+        }
+
+        private void MainWin_Load(object sender, EventArgs e)
+        {
+            // 在程序启动时读取CheckBox状态
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath))
+            {
+                if (key != null)
                 {
-                    bitlockerDrives.Add(drive);
+                    object value = key.GetValue(RegistryValueName);
+                    if (value != null) toDelVolLabel.Checked = Convert.ToBoolean(value);
                 }
             }
-            this.driveChooser.Items.AddRange(bitlockerDrives.ToArray());
-            
-            if(bitlockerDrives.Count > 0)
+        }
+
+        private void MainWin_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // 在程序关闭时保存CheckBox状态
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath))
             {
-                this.driveChooser.SelectedIndex = 0;
-                this.targetDrive = bitlockerDrives[0].Replace("\\", "");
+                key.SetValue(RegistryValueName, toDelVolLabel.Checked);
+            }
+        }
+
+        private void RefleshDrivers()
+        {
+            targetDrive = string.Empty;
+            driveList = Environment.GetLogicalDrives();
+            Console.Write("DriveList: " + string.Join(" ", driveList));
+            bitlockerDrives.Clear();
+            bitlockerDrives.AddRange(from string drive in driveList// 检查当前驱动器是否启用了 BitLocker
+                                     where IsDriveBitlocked(drive)
+                                     select drive);
+            driveChooser.Items.Clear();
+            driveChooser.Items.AddRange(bitlockerDrives.ToArray());
+            if (bitlockerDrives.Count > 0)
+            {
+                driveChooser.SelectedIndex = 0;
+                targetDrive = bitlockerDrives[0].Replace("\\", "");
             }
         }
 
         private void driveChooser_SelectedIndexChanged(object sender, EventArgs e)
         {
-            this.targetDrive = driveList[this.driveChooser.SelectedIndex].Replace("\\", "");
+            targetDrive = driveList[driveChooser.SelectedIndex].Replace("\\", "");
         }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool DeleteVolumeMountPoint(string lpszVolumeMountPoint);
 
         private void normalLockButton_Click(object sender, EventArgs e)
         {
-            // 创建批处理文件内容
-            string batContent = $"%windir%\\Sysnative\\manage-bde.exe -lock {targetDrive} \r\n" +
-                                                     $"pause\n";
+            //若未选择分区，提示用户
+            if(targetDrive == string.Empty)
+            {
+                MessageBox.Show(this, text: "请选择分区！", caption: "错误", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
 
-            string tempPath = Path.GetTempPath();
-            string batFileName = "lock_drive.bat";
-            string batFilePath = Path.Combine(tempPath, batFileName);
+            // 创建批处理文件内容
+            string batContent = $"%windir%\\Sysnative\\manage-bde.exe -lock {targetDrive} \r\n";
+
+            string batFilePath = Path.Combine(Path.GetTempPath(), "lock_drive.bat");
 
             File.WriteAllText(batFilePath, batContent, Encoding.ASCII);
 
             try
             {
-                RunProcess(batFilePath);
+                if (RunProcess(batFilePath) == 0)
+                {
+                    //若勾选了删除盘符，则删除盘符
+                    if (toDelVolLabel.Checked == true)
+                    {
+                        if (!DeleteVolumeMountPoint($@"{targetDrive}\"))
+                        {
+                            int errorCode = Marshal.GetLastWin32Error();
+                            Console.WriteLine($"操作失败，错误代码: {errorCode}");
+                        }
+                    }
+
+                    MessageBox.Show(this, text: "锁定成功", caption: "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    RefleshDrivers();
+                }
+                else
+                {
+                    MessageBox.Show(this, text: "锁定失败，请重试！", caption: "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             catch (Exception ex)
             {
@@ -71,19 +142,45 @@ namespace Bit_Locker
 
         private void forceLockButton_Click(object sender, EventArgs e)
         {
-            // 创建批处理文件内容
-            string batContent = $"%windir%\\Sysnative\\manage-bde.exe -lock {targetDrive} -ForceDismount\r\n" +
-                                                     $"pause\n";
+            //若未选择分区，提示用户
+            if (targetDrive == string.Empty)
+            {
+                MessageBox.Show(this, text: "请选择分区！", caption: "错误", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            new Alert(this).ShowDialog();
+        }
 
-            string tempPath = Path.GetTempPath();
-            string batFileName = "lock_drive.bat";
-            string batFilePath = Path.Combine(tempPath, batFileName);
+        internal void ContinueForceButton_Click(object sender, EventArgs e)
+        {
+            // 创建批处理文件内容
+            string batContent = $"%windir%\\Sysnative\\manage-bde.exe -lock {targetDrive} -ForceDismount\r\n";
+
+            string batFilePath = Path.Combine(Path.GetTempPath(), "lock_drive.bat");
 
             File.WriteAllText(batFilePath, batContent, Encoding.ASCII);
 
             try
             {
-                RunProcess(batFilePath);
+                if (RunProcess(batFilePath) == 0)
+                {
+                    //若勾选了删除盘符，则删除盘符
+                    if (toDelVolLabel.Checked == true)
+                    {
+                        if (!DeleteVolumeMountPoint($@"{targetDrive}\"))
+                        {
+                            int errorCode = Marshal.GetLastWin32Error();
+                            Console.WriteLine($"操作失败，错误代码: {errorCode}");
+                        }
+                    }
+
+                    MessageBox.Show(this, text: "锁定成功", caption: "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    RefleshDrivers();
+                }
+                else
+                {
+                    MessageBox.Show(this, text: "锁定失败，请重试！", caption: "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             catch (Exception ex)
             {
@@ -91,39 +188,47 @@ namespace Bit_Locker
             }
         }
 
-        private void RunProcess(string batFilePath)
+        private int RunProcess(string batFilePath)
         {
             // 检查文件路径是否为空
             if (string.IsNullOrEmpty(batFilePath)) throw new ArgumentException("batFilePath cannot be null or empty.");
 
             // 获取文件夹路径
-            string folderPath = System.IO.Path.GetDirectoryName(batFilePath);
+            string folderPath = Path.GetDirectoryName(batFilePath);
 
             // 检查文件夹是否存在
-            if (!System.IO.Directory.Exists(folderPath)) throw new DirectoryNotFoundException($"The folder '{folderPath}' does not exist.");
+            if (!Directory.Exists(folderPath)) throw new DirectoryNotFoundException($"The folder '{folderPath}' does not exist.");
 
             // 检查文件是否存在
-            string batFileName = System.IO.Path.Combine(folderPath, "lock_drive.bat");
-            if (!System.IO.File.Exists(batFileName)) throw new FileNotFoundException($"The file 'lock_drive.bat' does not exist in the folder '{folderPath}'.");
+            string batFileName = Path.Combine(folderPath, "lock_drive.bat");
+            if (!File.Exists(batFileName)) throw new FileNotFoundException($"The file 'lock_drive.bat' does not exist in the folder '{folderPath}'.");
 
             // 创建一个ProcessStartInfo对象
             ProcessStartInfo startInfo = new ProcessStartInfo
             {
                 FileName = batFileName,  // 直接设置为批处理文件路径
-                UseShellExecute = true,  // 启用Shell执行
+                UseShellExecute = false,  // 禁用Shell执行，以便可以获取退出代码
                 Verb = "runas",          // 请求管理员权限
-                WorkingDirectory = folderPath
+                WorkingDirectory = folderPath,
+                CreateNoWindow = true,   // 隐藏窗口
+                RedirectStandardOutput = true, // 重定向标准输出
+                RedirectStandardError = true   // 重定向标准错误
             };
 
             try
             {
                 // 启动进程
-                Process.Start(startInfo);
+                using (Process process = Process.Start(startInfo))
+                {
+                    if (process == null) throw new InvalidOperationException("无法启动进程。");
+                    process.WaitForExit();
+                    return process.ExitCode;
+                }
             }
             catch (Exception ex)
             {
-                // 捕获异常并处理
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                Console.WriteLine($"发生错误: {ex.Message}");
+                return -1; // 返回一个错误代码，例如 -1
             }
         }
 
@@ -159,6 +264,11 @@ namespace Bit_Locker
             }
 
             return false;
+        }
+
+        private void RefleshButton_Click(object sender, EventArgs e)
+        {
+            RefleshDrivers();
         }
     }
 }
