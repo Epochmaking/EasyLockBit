@@ -89,7 +89,7 @@ namespace Bit_Locker
 
         private void driveChooser_SelectedIndexChanged(object sender, EventArgs e)
         {
-            targetDrive = driveList[driveChooser.SelectedIndex].Replace("\\", "");
+            targetDrive = bitlockerDrives[driveChooser.SelectedIndex].Replace("\\", "");
         }
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
