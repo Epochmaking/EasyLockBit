@@ -4,6 +4,7 @@
 
 ## EasyLockBit简介
 **EasyLockBit** 是一款专为BitLocker设计的快捷锁定工具，它能够快速锁定已解锁的BitLocker分区，无需重启计算机或使用命令行，极大地简化了操作流程。
+**视频简介**：https://www.bilibili.com/video/BV1JsgJzPEDY/
 
 ## 核心特性
 - **快速锁定**：只需点击几下鼠标，即可立即锁定已解锁的BitLocker分区，无需繁琐的重启或命令行操作。
