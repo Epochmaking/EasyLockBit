@@ -39,6 +39,7 @@ namespace Bit_Locker
             this.label2 = new System.Windows.Forms.Label();
             this.refleshButton = new System.Windows.Forms.Button();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
+            this.IsEnableHotKeys = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -47,7 +48,7 @@ namespace Bit_Locker
             this.normalLockButton.Cursor = System.Windows.Forms.Cursors.Hand;
             this.normalLockButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.normalLockButton.Font = new System.Drawing.Font("Microsoft YaHei UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.normalLockButton.Location = new System.Drawing.Point(35, 137);
+            this.normalLockButton.Location = new System.Drawing.Point(35, 144);
             this.normalLockButton.Margin = new System.Windows.Forms.Padding(2);
             this.normalLockButton.Name = "normalLockButton";
             this.normalLockButton.Size = new System.Drawing.Size(113, 45);
@@ -61,7 +62,7 @@ namespace Bit_Locker
             this.forceLockButton.Cursor = System.Windows.Forms.Cursors.Hand;
             this.forceLockButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.forceLockButton.Font = new System.Drawing.Font("Microsoft YaHei UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.forceLockButton.Location = new System.Drawing.Point(187, 137);
+            this.forceLockButton.Location = new System.Drawing.Point(187, 144);
             this.forceLockButton.Margin = new System.Windows.Forms.Padding(2);
             this.forceLockButton.Name = "forceLockButton";
             this.forceLockButton.Size = new System.Drawing.Size(113, 45);
@@ -88,7 +89,7 @@ namespace Bit_Locker
             this.toDelVolLabel.AutoSize = true;
             this.toDelVolLabel.BackColor = System.Drawing.Color.Transparent;
             this.toDelVolLabel.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.toDelVolLabel.Location = new System.Drawing.Point(45, 111);
+            this.toDelVolLabel.Location = new System.Drawing.Point(44, 121);
             this.toDelVolLabel.Name = "toDelVolLabel";
             this.toDelVolLabel.Size = new System.Drawing.Size(99, 21);
             this.toDelVolLabel.TabIndex = 4;
@@ -102,7 +103,7 @@ namespace Bit_Locker
             this.label1.BackColor = System.Drawing.Color.Transparent;
             this.label1.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.label1.ForeColor = System.Drawing.SystemColors.Highlight;
-            this.label1.Location = new System.Drawing.Point(139, 112);
+            this.label1.Location = new System.Drawing.Point(138, 122);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(162, 17);
             this.label1.TabIndex = 5;
@@ -143,6 +144,20 @@ namespace Bit_Locker
             this.pictureBox1.TabIndex = 8;
             this.pictureBox1.TabStop = false;
             // 
+            // IsEnableHotKeys
+            // 
+            this.IsEnableHotKeys.AutoSize = true;
+            this.IsEnableHotKeys.BackColor = System.Drawing.Color.Transparent;
+            this.IsEnableHotKeys.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.IsEnableHotKeys.Location = new System.Drawing.Point(44, 99);
+            this.IsEnableHotKeys.Name = "IsEnableHotKeys";
+            this.IsEnableHotKeys.Size = new System.Drawing.Size(193, 21);
+            this.IsEnableHotKeys.TabIndex = 9;
+            this.IsEnableHotKeys.Text = "启用强制锁定快捷键 (CTRL+B)";
+            this.IsEnableHotKeys.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.IsEnableHotKeys.UseVisualStyleBackColor = false;
+            this.IsEnableHotKeys.CheckedChanged += new System.EventHandler(this.IsEnableHotKeys_CheckedChanged);
+            // 
             // MainWin
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -150,6 +165,7 @@ namespace Bit_Locker
             this.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("$this.BackgroundImage")));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.ClientSize = new System.Drawing.Size(333, 198);
+            this.Controls.Add(this.IsEnableHotKeys);
             this.Controls.Add(this.refleshButton);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
@@ -184,6 +200,7 @@ namespace Bit_Locker
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Button refleshButton;
         private System.Windows.Forms.PictureBox pictureBox1;
+        private System.Windows.Forms.CheckBox IsEnableHotKeys;
     }
 }
 

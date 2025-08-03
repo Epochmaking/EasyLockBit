@@ -15,27 +15,42 @@ namespace Bit_Locker
 {
     public partial class MainWin : Form
     {
+        // 快捷键相关 Windows API
+        [DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
         public string[] driveList;
         List<string> bitlockerDrives = new List<string>();
         public string targetDrive;
 
         //复选框注册表，用于保持上次程序关闭前的复选框状态
         private const string RegistryKeyPath = @"SOFTWARE\EasyLockBit";
-        private const string RegistryValueName = "ToDelVolCheckBoxState";
+        private const string ToDelVol_RegName = "ToDelVolCheckBoxState";
+        private const string IsEnableHotKeys_RegName = "IsEnableHotKeysCheckBoxState";
+
+        //用于注册快捷键
+        private const int HOTKEY_ID = 9000;
+        private const uint MOD_CONTROL = 0x0002; // 修饰键
+        private const uint VK_B = 0x42;  // 虚拟键码
 
         public MainWin()
         {
             InitializeComponent();
             CheckForAdminRights();
+            if(IsEnableHotKeys.Checked == true)
+            {
+                RegisterHotKey(this.Handle, HOTKEY_ID, MOD_CONTROL, VK_B); // 注册全局快捷键
+            }    
             RefleshDrivers();
         }
 
         //检测是否以管理员身份运行
         private void CheckForAdminRights()
         {
-            // 获取当前进程的Windows身份
             WindowsIdentity identity = WindowsIdentity.GetCurrent();
-            // 创建一个WindowsPrincipal对象
             WindowsPrincipal principal = new WindowsPrincipal(identity);
 
             // 检查当前用户是否属于管理员组
@@ -54,8 +69,11 @@ namespace Bit_Locker
             {
                 if (key != null)
                 {
-                    object value = key.GetValue(RegistryValueName);
+                    object value = key.GetValue(ToDelVol_RegName);
                     if (value != null) toDelVolLabel.Checked = Convert.ToBoolean(value);
+
+                    value = key.GetValue(IsEnableHotKeys_RegName);
+                    if (value != null) IsEnableHotKeys.Checked = Convert.ToBoolean(value);
                 }
             }
         }
@@ -65,8 +83,26 @@ namespace Bit_Locker
             // 在程序关闭时保存CheckBox状态
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath))
             {
-                key.SetValue(RegistryValueName, toDelVolLabel.Checked);
+                key.SetValue(ToDelVol_RegName, toDelVolLabel.Checked);
+                key.SetValue(IsEnableHotKeys_RegName, IsEnableHotKeys.Checked);
             }
+
+            UnregisterHotKey(this.Handle, HOTKEY_ID); // 注销全局快捷键
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_HOTKEY = 0x0312;
+
+            if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == HOTKEY_ID)
+            {
+                // 快捷键触发
+                object sender = null;
+                EventArgs e = null;
+                ContinueForceButton_Click(sender, e);
+            }
+
+            base.WndProc(ref m);
         }
 
         private void RefleshDrivers()
@@ -155,9 +191,7 @@ namespace Bit_Locker
         {
             // 创建批处理文件内容
             string batContent = $"%windir%\\Sysnative\\manage-bde.exe -lock {targetDrive} -ForceDismount\r\n";
-
             string batFilePath = Path.Combine(Path.GetTempPath(), "lock_drive.bat");
-
             File.WriteAllText(batFilePath, batContent, Encoding.ASCII);
 
             try
@@ -254,7 +288,7 @@ namespace Bit_Locker
                 {
                     foreach (ManagementObject volume in searcher.Get())
                     {
-                        if ((UInt32?)volume["ProtectionStatus"] == 1) return true;
+                        if ((UInt32?)volume["ProtectionStatus"] == 1) return true;  // 此值必须显式转换为UInt32
                     }
                 }
             }
@@ -269,6 +303,18 @@ namespace Bit_Locker
         private void RefleshButton_Click(object sender, EventArgs e)
         {
             RefleshDrivers();
+        }
+
+        private void IsEnableHotKeys_CheckedChanged(object sender, EventArgs e)
+        {
+            if(IsEnableHotKeys.Checked == false)
+            {
+                UnregisterHotKey(this.Handle, HOTKEY_ID);
+            }
+            else
+            {
+                RegisterHotKey(this.Handle, HOTKEY_ID, MOD_CONTROL, VK_B);
+            }
         }
     }
 }
